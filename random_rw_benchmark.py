@@ -30,7 +30,7 @@ if __name__ == "__main__":
             ranks = []
             while len(ranks) < num_iter:
                 g = gen_reduced_diagram(n_qubits, n_gates)
-                r = rank_decomposition(g, timeout_s=timeout_s)
+                r, _ = rank_decomposition(g, timeout_s=timeout_s)
                 if r != -1:
                     ranks.append(r)
 
