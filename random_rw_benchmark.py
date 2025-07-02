@@ -4,7 +4,7 @@ import os
 import pyzx as zx
 from matplotlib import pyplot as plt
 
-from rank_width import rank_decomposition
+from rank_width import rw_decomposition
 
 
 def gen_reduced_diagram(n_qubits, n_gates):
@@ -20,18 +20,19 @@ if __name__ == "__main__":
     output_dir = 'results/random-rw-benchmark'
     os.makedirs(output_dir, exist_ok=True)
 
-    timeout_s = 1
-    num_iter = 100
-    n_qubits_arr = [20, 40, 60, 80, 100]
-    n_gates_arr = [200, 400, 600, 800, 1000]
+    timeout_s = 10
+    num_iter = 10
+    n_qubits_arr = [10]
+    n_gates_arr = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     rw_median = [[-1] * len(n_gates_arr) for _ in range(len(n_qubits_arr))]
     for row, n_qubits in enumerate(n_qubits_arr):
         for col, n_gates in enumerate(n_gates_arr):
             ranks = []
             while len(ranks) < num_iter:
                 g = gen_reduced_diagram(n_qubits, n_gates)
-                r, _ = rank_decomposition(g, timeout_s=timeout_s)
-                if r != -1:
+                tree_edges = rw_decomposition(g, timeout_s=timeout_s)
+                if tree_edges is not None:
+                    r = max([0] + [r for u, v, r in tree_edges])
                     ranks.append(r)
 
             rw_median[row][col] = int(np.round(np.median(ranks)))
@@ -43,7 +44,7 @@ if __name__ == "__main__":
             plt.savefig(fig_path)
             plt.close()
 
-    with open(f'{output_dir}/rw_median_{timeout_s}s.csv', 'w') as f:
+    with open(f'{output_dir}/rw_median_N10_{timeout_s}s.csv', 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['N\G'] + n_gates_arr)
         for n_qubits, row in zip(n_qubits_arr, rw_median):

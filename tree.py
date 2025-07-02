@@ -1,43 +1,31 @@
+import numpy as np
+
+
 def incidence_list(edges):
-    n = max([max(u, v) for u, v, r in edges]) + 1
+    n = len(edges) // 2 + 1
     inc = [[] for _ in range(n)]
-    for u, v, r in edges:
-        inc[u].append((v, r))
-        inc[v].append((u, r))
+    for e, (_, v, _) in enumerate(edges):
+        inc[v].append(e)
     return inc
 
 
-def root_tree(inc, root):
-    children = [[] for _ in range(len(inc))]
+def calc_partitions(inc, edges):
+    n, m = len(inc) // 2 + 1, len(edges)
+    part = np.zeros((m, n), dtype=np.bool_)
 
-    def dfs(u, p):
-        for v, r in inc[u]:
-            if v != p:
-                children[u].append((v, r))
-                dfs(v, u)
-
-    dfs(root, -1)
-    return children
-
-
-def euler_tour(children, root):
-    tour = []
-    leaf_seg = [(None, None)] * len(children)
-
-    def dfs(u):
-        if not children[u]:
-            tour.append(u)
-            leaf_seg[u] = (len(tour) - 1, len(tour))
+    def dfs(e):
+        if part[e].any():
             return
-        for v, _ in children[u]:
-            dfs(v)
-        first_child, last_child = children[u][0][0], children[u][-1][0]
-        leaf_seg[u] = (leaf_seg[first_child][0], leaf_seg[last_child][1])
+        u = edges[e][0]
+        if len(inc[u]) == 1:
+            part[e][u] = True
+            return
+        for f in inc[u]:
+            if e ^ f != 1:
+                dfs(f)
+                part[e] |= part[f]
 
-    dfs(root)
-    return tour, leaf_seg
+    for e in range(m):
+        dfs(e)
 
-
-def get_partition(tour, leaf_seg, u):
-    l, r = leaf_seg[u]
-    return tour[l:r], tour[:l] + tour[r:]
+    return part

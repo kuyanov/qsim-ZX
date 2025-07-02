@@ -2,10 +2,10 @@ import numpy as np
 import pyzx as zx
 import random
 
-from gf2_algebra import *
-from rank_width import rank_decomposition
+from gf2_factorize import gf2_factorize
+from rank_width import rw_decomposition
 from simulate_rw import simulate_rw
-from tree import *
+from tree import incidence_list, calc_partitions
 
 
 def gen_graph(n, m):
@@ -21,25 +21,21 @@ def gen_graph(n, m):
 def test_rank_decomposition():
     n, m = 10, 20
     g = gen_graph(n, m)
-    rw, edges = rank_decomposition(g)
-    inc = incidence_list(edges)
-    root = len(inc) - 1
-    children = root_tree(inc, root)
-    tour, leaf_seg = euler_tour(children, root)
+    tree_edges = rw_decomposition(g)
+    inc = incidence_list(tree_edges)
+    part = calc_partitions(inc, tree_edges)
     mat = np.zeros((n, n), dtype=np.int32)
     for u, v in g.edge_set():
         mat[u][v] = mat[v][u] = 1
-    for u in range(len(children)):
-        for v, r in children[u]:
-            vs1, vs2 = get_partition(tour, leaf_seg, v)
-            A = mat[vs1][:, vs2]
-            U, V = gf2_factorize(A)
-            assert (U @ V % 2 == A).all()
-            assert U.shape[1] == r
+    for e, (_, _, r) in enumerate(tree_edges):
+        A = mat[part[e]][:, ~part[e]]
+        U, V = gf2_factorize(A)
+        assert (U @ V % 2 == A).all()
+        assert U.shape[1] == r
 
 
 def test_rw_simulate():
     n, m = 10, 20
     g = gen_graph(n, m)
-    r, rw_edges = rank_decomposition(g)
-    simulate_rw(g, rw_edges)
+    tree_edges = rw_decomposition(g)
+    simulate_rw(g, tree_edges)
