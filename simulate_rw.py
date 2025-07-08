@@ -31,6 +31,24 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
                     R[x] += S[a] * T[b] * (-1) ** phase
         return R / sqrt(2) ** (count(A) + count(B))
 
+    def conv_ruv(S, T, A, B):
+        r_u, r_v, r_w = A.shape[1], len(S.shape), len(T.shape)
+        A1, A2 = A[:r_v], A[r_v:]
+        if r_w > r_v:
+            S, T = T, S
+            r_v, r_w = r_w, r_v
+            A1, A2 = A2, A1
+            B = B.T
+        S_hat = np.fft.fftn(S)
+        R = np.zeros([2] * r_u, dtype=S.dtype)
+        for x in product(range(2), repeat=r_u):
+            for b in product(range(2), repeat=r_w):
+                x1, b1 = GF2(x), GF2(b)
+                a = tuple(A1 @ x1 + B @ b1)
+                phase = int(np.dot(b1, A2 @ x1))
+                R[x] += T[b] * S_hat[a] * (-1) ** phase
+        return R / sqrt(2) ** (count(A) + count(B))
+
     def merge_children(f1, f2):
         v, _, r_v = tree_edges[f1]
         w, _, r_w = tree_edges[f2]
@@ -48,7 +66,7 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
         mat_in = mat[part[f1]][:, part[f2]]
         mat_inv = generalized_inverse(mat_in)
         conn_in = conn_vw @ mat_inv @ conn_wv.T
-        state_u_hat = conv_naive(state_v, state_w, fac_l, conn_in)
+        state_u_hat = conv_ruv(state_v, state_w, fac_l, conn_in)
         state_u = np.fft.fftn(state_u_hat) / sqrt(2) ** r_u
 
         sc_cnt = count(conn_out) - count(fac_l) - count(fac_r) + r_u
