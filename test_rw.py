@@ -78,8 +78,14 @@ def test_rw_simulate_square():
 
 def test_rw_simulate():
     n, m = 10, 40
-    g = gen_graph(n, m)
-    tree_edges = rw_decomposition(g)
-    res = simulate_rw(g, tree_edges)
-    corr = zx.tensorfy(g, preserve_scalar=False)
-    assert np.allclose(res, corr)
+    for _ in range(10):
+        g = gen_graph(n, m)
+        tree_edges = rw_decomposition(g)
+        res = simulate_rw(g, tree_edges)
+        corr = zx.tensorfy(g, preserve_scalar=False)
+        if not np.allclose(res, corr):
+            print(f'WA {res} {corr}')
+            print(g)
+            print(g.edge_set())
+            print(tree_edges)
+            assert False
