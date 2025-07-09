@@ -64,13 +64,15 @@ def conv(S, T, A, B):
         return conv_ruv(S, T, A[:r_v], A[r_v:], B)
 
 
-def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
+def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges, preserve_scalar=True):
     inc = incidence_list(tree_edges)
     part = calc_partitions(inc, tree_edges)
+    id2vert = list(g.vertices())
+    vert2id = {v: i for i, v in enumerate(g.vertices())}
     n = g.num_vertices()
     mat = GF2.Zeros((n, n))
     for u, v in g.edge_set():
-        mat[u][v] = mat[v][u] = 1
+        mat[vert2id[u]][vert2id[v]] = mat[vert2id[v]][vert2id[u]] = 1
 
     def merge_children(f1, f2):
         v, _, r_v = tree_edges[f1]
@@ -99,9 +101,9 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
     def simplify_recursive(e):
         u, _, r_u = tree_edges[e]
         if len(inc[u]) == 1:
-            phase = g.phase(u)
+            phase = g.phase(id2vert[u])
             state = np.array([1, np.exp(pi * 1j * phase)])
-            nb = list(g.neighbors(u))
+            nb = [vert2id[v] for v in g.neighbors(id2vert[u])]
             conn = GF2.Zeros((1, n))
             conn[0][nb] = 1
             return state, conn
@@ -109,5 +111,7 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
         children = [f for f in inc[u] if e ^ f != 1]
         return merge_children(*children)
 
+    if not tree_edges:
+        return g.scalar.to_number() ** preserve_scalar
     r, e = max([(r, e) for e, (_, _, r) in enumerate(tree_edges)])
-    return merge_children(e, e ^ 1)[0]
+    return merge_children(e, e ^ 1)[0] * g.scalar.to_number() ** preserve_scalar

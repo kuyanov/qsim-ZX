@@ -7,6 +7,7 @@ from gf2 import rank_factorize, generalized_inverse
 from rank_width import rw_decomposition
 from simulate_rw import simulate_rw
 from tree import incidence_list, calc_partitions
+from random_rw_benchmark import gen_reduced_diagram
 
 
 def gen_graph(n, m):
@@ -18,6 +19,15 @@ def gen_graph(n, m):
         if (u, v) not in g.edge_set() and (v, u) not in g.edge_set():
             g.add_edge((u, v), zx.EdgeType.HADAMARD)
     return g
+
+
+def check(res, corr, g, tree_edges):
+    if not np.allclose(res, corr):
+        print(f'WA {res} {corr}')
+        print(g)
+        print(g.edge_set())
+        print(tree_edges)
+        assert False
 
 
 def test_rank_factorize():
@@ -76,16 +86,23 @@ def test_rw_simulate_square():
     assert np.allclose(res, zx.tensorfy(g))
 
 
-def test_rw_simulate():
+def test_rw_simulate_graph():
     n, m = 10, 40
     for _ in range(10):
         g = gen_graph(n, m)
         tree_edges = rw_decomposition(g)
         res = simulate_rw(g, tree_edges)
-        corr = zx.tensorfy(g, preserve_scalar=False)
-        if not np.allclose(res, corr):
-            print(f'WA {res} {corr}')
-            print(g)
-            print(g.edge_set())
-            print(tree_edges)
-            assert False
+        corr = zx.tensorfy(g)
+        check(res, corr, g, tree_edges)
+
+
+def test_rw_simulate_circuit():
+    n_qubits, n_gates = 5, 100
+    for _ in range(10):
+        g = gen_reduced_diagram(n_qubits, n_gates)
+        tree_edges = rw_decomposition(g)
+        if tree_edges is None:
+            continue
+        res = simulate_rw(g, tree_edges)
+        corr = zx.tensorfy(g)
+        check(res, corr, g, tree_edges)
