@@ -8,6 +8,62 @@ from gf2 import rank_factorize, generalized_inverse
 from tree import incidence_list, calc_partitions
 
 
+def count1(A: GF2):
+    return (A == 1).sum()
+
+
+def conv_naive(S, T, A, B):
+    r_u, r_v, r_w = A.shape[1], len(S.shape), len(T.shape)
+    A1, A2 = A[:r_v], A[r_v:]
+    R = np.zeros([2] * r_u, dtype=S.dtype)
+    for x in product(range(2), repeat=r_u):
+        for a in product(range(2), repeat=r_v):
+            for b in product(range(2), repeat=r_w):
+                x1, a1, b1 = GF2(x), GF2(a), GF2(b)
+                phase = int(np.dot(a1, A1 @ x1) + np.dot(b1, A2 @ x1) + np.dot(a1, B @ b1))
+                R[x] += S[a] * T[b] * (-1) ** phase
+    return R / sqrt(2) ** (count1(A) + count1(B))
+
+
+def conv_ruv(S, T, A1, A2, B):
+    r_u, r_v, r_w = A1.shape[1], len(S.shape), len(T.shape)
+    S_hat = np.fft.fftn(S)
+    R = np.zeros([2] * r_u, dtype=S.dtype)
+    for x in product(range(2), repeat=r_u):
+        for b in product(range(2), repeat=r_w):
+            x1, b1 = GF2(x), GF2(b)
+            a = tuple(A1 @ x1 + B @ b1)
+            phase = int(np.dot(b1, A2 @ x1))
+            R[x] += T[b] * S_hat[a] * (-1) ** phase
+    return R / sqrt(2) ** (count1(A1) + count1(A2) + count1(B))
+
+
+def conv_rvw(S, T, A1, A2, B):
+    r_u, r_v, r_w = A1.shape[1], len(S.shape), len(T.shape)
+    F = np.zeros(S.shape + T.shape, dtype=S.dtype)
+    for a in product(range(2), repeat=r_v):
+        for b in product(range(2), repeat=r_w):
+            a1, b1 = GF2(a), GF2(b)
+            F[*a, *b] = S[a] * T[b] * (-1) ** int(np.dot(a1, B @ b1))
+    F_hat = np.fft.fftn(F)
+    R = np.zeros([2] * r_u, dtype=S.dtype)
+    for x in product(range(2), repeat=r_u):
+        x1 = GF2(x)
+        R[x] = F_hat[*(A1 @ x1), *(A2 @ x1)]
+    return R / sqrt(2) ** (count1(A1) + count1(A2) + count1(B))
+
+
+def conv(S, T, A, B):
+    r_u, r_v, r_w = A.shape[1], len(S.shape), len(T.shape)
+    r_max = max(r_u, r_v, r_w)
+    if r_u == r_max:
+        return conv_rvw(S, T, A[:r_v], A[r_v:], B)
+    elif r_v == r_max:
+        return conv_ruv(T, S, A[r_v:], A[:r_v], B.T)
+    else:
+        return conv_ruv(S, T, A[:r_v], A[r_v:], B)
+
+
 def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
     inc = incidence_list(tree_edges)
     part = calc_partitions(inc, tree_edges)
@@ -16,62 +72,11 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
     for u, v in g.edge_set():
         mat[u][v] = mat[v][u] = 1
 
-    def count(A: GF2):
-        return (A == 1).sum()
-
-    def conv_naive(S, T, A, B):
-        r_u, r_v, r_w = A.shape[1], len(S.shape), len(T.shape)
-        A1, A2 = A[:r_v], A[r_v:]
-        R = np.zeros([2] * r_u, dtype=S.dtype)
-        for x in product(range(2), repeat=r_u):
-            for a in product(range(2), repeat=r_v):
-                for b in product(range(2), repeat=r_w):
-                    x1, a1, b1 = GF2(x), GF2(a), GF2(b)
-                    phase = int(np.dot(a1, A1 @ x1) + np.dot(b1, A2 @ x1) + np.dot(a1, B @ b1))
-                    R[x] += S[a] * T[b] * (-1) ** phase
-        return R / sqrt(2) ** (count(A) + count(B))
-
-    def conv_ruv(S, T, A1, A2, B):
-        r_u, r_v, r_w = A1.shape[1], len(S.shape), len(T.shape)
-        S_hat = np.fft.fftn(S)
-        R = np.zeros([2] * r_u, dtype=S.dtype)
-        for x in product(range(2), repeat=r_u):
-            for b in product(range(2), repeat=r_w):
-                x1, b1 = GF2(x), GF2(b)
-                a = tuple(A1 @ x1 + B @ b1)
-                phase = int(np.dot(b1, A2 @ x1))
-                R[x] += T[b] * S_hat[a] * (-1) ** phase
-        return R / sqrt(2) ** (count(A1) + count(A2) + count(B))
-
-    def conv_rvw(S, T, A1, A2, B):
-        r_u, r_v, r_w = A1.shape[1], len(S.shape), len(T.shape)
-        F = np.zeros(S.shape + T.shape, dtype=S.dtype)
-        for a in product(range(2), repeat=r_v):
-            for b in product(range(2), repeat=r_w):
-                a1, b1 = GF2(a), GF2(b)
-                F[*a, *b] = S[a] * T[b] * (-1) ** int(np.dot(a1, B @ b1))
-        F_hat = np.fft.fftn(F)
-        R = np.zeros([2] * r_u, dtype=S.dtype)
-        for x in product(range(2), repeat=r_u):
-            x1 = GF2(x)
-            R[x] = F_hat[*(A1 @ x1), *(A2 @ x1)]
-        return R / sqrt(2) ** (count(A1) + count(A2) + count(B))
-
-    def conv(S, T, A, B):
-        r_u, r_v, r_w = A.shape[1], len(S.shape), len(T.shape)
-        r_max = max(r_u, r_v, r_w)
-        if r_u == r_max:
-            return conv_rvw(S, T, A[:r_v], A[r_v:], B)
-        elif r_v == r_max:
-            return conv_ruv(T, S, A[r_v:], A[:r_v], B.T)
-        else:
-            return conv_ruv(S, T, A[:r_v], A[r_v:], B)
-
     def merge_children(f1, f2):
         v, _, r_v = tree_edges[f1]
         w, _, r_w = tree_edges[f2]
-        state_v, conn_v = dfs(f1)
-        state_w, conn_w = dfs(f2)
+        state_v, conn_v = simplify_recursive(f1)
+        state_w, conn_w = simplify_recursive(f2)
 
         conn_vw = conn_v[:, part[f2]]
         conn_wv = conn_w[:, part[f1]]
@@ -87,11 +92,11 @@ def simulate_rw(g: zx.graph.base.BaseGraph, tree_edges):
         state_u_hat = conv(state_v, state_w, fac_l, conn_in)
         state_u = np.fft.fftn(state_u_hat) / sqrt(2) ** r_u
 
-        sc_cnt = count(conn_out) - count(fac_l) - count(fac_r) + r_u
-        sc_cnt += count(conn_vw) + count(conn_wv) - count(conn_in) - count(mat_in)
+        sc_cnt = count1(conn_out) - count1(fac_l) - count1(fac_r) + r_u
+        sc_cnt += count1(conn_vw) + count1(conn_wv) - count1(conn_in) - count1(mat_in)
         return state_u / sqrt(2) ** sc_cnt, fac_r
 
-    def dfs(e):
+    def simplify_recursive(e):
         u, _, r_u = tree_edges[e]
         if len(inc[u]) == 1:
             phase = g.phase(u)
