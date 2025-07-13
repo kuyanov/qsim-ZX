@@ -4,10 +4,7 @@ import random
 from galois import GF2
 
 from gf2 import rank_factorize, generalized_inverse
-from rank_width import rw_decomposition
-from simulate_rw import simulate_rw
-from tree import incidence_list, calc_partitions
-from random_rw_benchmark import gen_reduced_diagram
+from rw_simulate import simulate_graph, simulate_circuit
 
 
 def gen_graph(n, m):
@@ -21,12 +18,11 @@ def gen_graph(n, m):
     return g
 
 
-def check(res, corr, g, tree_edges):
+def check(res, corr, g):
     if not np.allclose(res, corr):
         print(f'WA {res} {corr}')
         print(g)
         print(g.edge_set())
-        print(tree_edges)
         assert False
 
 
@@ -48,29 +44,13 @@ def test_generalized_inverse():
     assert (A @ B @ A == A).all()
 
 
-def test_rw_decomposition():
-    n, m = 10, 20
-    g = gen_graph(n, m)
-    tree_edges = rw_decomposition(g)
-    inc = incidence_list(tree_edges)
-    part = calc_partitions(inc, tree_edges)
-    mat = GF2.Zeros((n, n))
-    for u, v in g.edge_set():
-        mat[u][v] = mat[v][u] = 1
-    for e, (_, _, rw) in enumerate(tree_edges):
-        A = mat[part[e]][:, ~part[e]]
-        r, U, V = rank_factorize(A)
-        assert (U[:, :r] @ V[:r] == A).all()
-        assert r == rw
-
-
 def test_rw_simulate_one_edge():
     g = zx.Graph()
     g.add_vertex(zx.VertexType.Z, phase=0)
     g.add_vertex(zx.VertexType.Z, phase=1)
     g.add_edge((0, 1), zx.EdgeType.HADAMARD)
-    tree_edges = [(0, 1, 1), (1, 0, 1)]
-    res = simulate_rw(g, tree_edges)
+    tree_edges = [(0, 1), (1, 0)]
+    res = simulate_graph(g, tree_edges)
     assert np.allclose(res, zx.tensorfy(g))
 
 
@@ -80,9 +60,8 @@ def test_rw_simulate_square():
         g.add_vertex(zx.VertexType.Z)
     for i in range(4):
         g.add_edge((i, (i + 1) % 4), zx.EdgeType.HADAMARD)
-    tree_edges = [(0, 4, 1), (4, 0, 1), (1, 4, 1), (4, 1, 1),
-                  (2, 5, 1), (5, 2, 1), (3, 5, 1), (5, 3, 1), (4, 5, 2), (5, 4, 2)]
-    res = simulate_rw(g, tree_edges)
+    tree_edges = [(0, 4), (4, 0), (1, 4), (4, 1), (2, 5), (5, 2), (3, 5), (5, 3), (4, 5), (5, 4)]
+    res = simulate_graph(g, tree_edges)
     assert np.allclose(res, zx.tensorfy(g))
 
 
@@ -90,19 +69,24 @@ def test_rw_simulate_graph():
     n, m = 10, 40
     for _ in range(10):
         g = gen_graph(n, m)
-        tree_edges = rw_decomposition(g)
-        res = simulate_rw(g, tree_edges)
+        res = simulate_graph(g)
         corr = zx.tensorfy(g)
-        check(res, corr, g, tree_edges)
+        check(res, corr, g)
 
 
 def test_rw_simulate_circuit():
     n_qubits, n_gates = 5, 100
+    basic_states = ['0', '1', '+', '-']
     for _ in range(10):
-        g = gen_reduced_diagram(n_qubits, n_gates)
-        tree_edges = rw_decomposition(g)
-        if tree_edges is None:
-            continue
-        res = simulate_rw(g, tree_edges)
+        circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
+        state = random.choice(basic_states) * n_qubits
+        effect = random.choice(basic_states) * n_qubits
+        res = simulate_circuit(circ, state, effect)
+
+        g = circ.to_graph()
+        g.apply_state(state)
+        g.apply_effect(effect)
+        zx.simplify.full_reduce(g)
         corr = zx.tensorfy(g)
-        check(res, corr, g, tree_edges)
+
+        check(res, corr, g)

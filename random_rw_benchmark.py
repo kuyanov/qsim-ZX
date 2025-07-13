@@ -4,10 +4,12 @@ import os
 import pyzx as zx
 from matplotlib import pyplot as plt
 
+from graph import adjacency_matrix
 from rank_width import rw_decomposition
+from tree import calc_ranks, calc_partitions, incidence_list
 
 
-def gen_reduced_diagram(n_qubits, n_gates):
+def gen_reduced_diagram(n_qubits, n_gates) -> zx.graph.base.BaseGraph:
     c = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
     g = c.to_graph()
     g.apply_state('0' * n_qubits)
@@ -20,8 +22,8 @@ if __name__ == "__main__":
     output_dir = 'results/random-rw-benchmark'
     os.makedirs(output_dir, exist_ok=True)
 
-    timeout_s = 10
-    num_iter = 10
+    timeout_s = 1
+    num_iter = 100
     n_qubits_arr = [10]
     n_gates_arr = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     rw_median = [[-1] * len(n_gates_arr) for _ in range(len(n_qubits_arr))]
@@ -30,10 +32,15 @@ if __name__ == "__main__":
             ranks = []
             while len(ranks) < num_iter:
                 g = gen_reduced_diagram(n_qubits, n_gates)
+                mat, _, _ = adjacency_matrix(g)
                 tree_edges = rw_decomposition(g, timeout_s=timeout_s)
-                if tree_edges is not None:
-                    r = max([0] + [r for u, v, r in tree_edges])
-                    ranks.append(r)
+                if tree_edges is None:
+                    continue
+                inc = incidence_list(tree_edges)
+                part = calc_partitions(inc, tree_edges)
+                tree_edges = calc_ranks(mat, part, tree_edges)
+                r = max([0] + [r for u, v, r in tree_edges])
+                ranks.append(r)
 
             rw_median[row][col] = int(np.round(np.median(ranks)))
             plt.hist(ranks)

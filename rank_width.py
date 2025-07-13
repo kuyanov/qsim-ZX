@@ -22,9 +22,8 @@ def rw_decomposition(g: zx.graph.base.BaseGraph, timeout_s=1):
                 tokens = line.split()
                 u = int(tokens[0].split('_')[1])
                 v = int(tokens[2].split('_')[1])
-                r = int(tokens[3][1:-1].split('=')[1])
-                tree_edges.append((u, v, r))
-                tree_edges.append((v, u, r))
+                tree_edges.append((u, v))
+                tree_edges.append((v, u))
         if tree_edges:
             return tree_edges
 
