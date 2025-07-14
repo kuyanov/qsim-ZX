@@ -6,7 +6,7 @@ from math import *
 from pyzx.gflow import gflow
 
 from gf2 import rank_factorize, generalized_inverse
-from graph import adjacency_matrix, cut_rank
+from graph import adjacency_matrix
 from rank_width import rw_decomposition
 from tree import incidence_list, calc_partitions, calc_ranks, induced_tree
 
@@ -168,7 +168,11 @@ def initial_rw_decomposition(g: zx.graph.base.BaseGraph) -> list:
             cur_root += 1
         else:
             sub_roots.append(vert_group[0])
-    assert len(sub_roots) >= 3
+    assert len(sub_roots) >= 2
+    if len(sub_roots) == 2:
+        tree_edges.append((sub_roots[0], sub_roots[1]))
+        tree_edges.append((sub_roots[1], sub_roots[0]))
+        return tree_edges
     tree_edges.append((sub_roots[0], cur_root))
     tree_edges.append((cur_root, sub_roots[0]))
     tree_edges.append((sub_roots[-1], 2 * n - 3))

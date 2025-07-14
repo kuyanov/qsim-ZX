@@ -18,12 +18,22 @@ def gen_graph(n, m):
     return g
 
 
-def check(res, corr, g):
+def check_answer(res, corr, g):
     if not np.allclose(res, corr):
         print(f'WA {res} {corr}')
         print(g)
         print(g.edge_set())
         assert False
+
+
+def check_circuit_simulation(circ, state, effect):
+    res = simulate_circuit(circ, state, effect)
+    g = circ.to_graph()
+    g.apply_state(state)
+    g.apply_effect(effect)
+    zx.simplify.full_reduce(g)
+    corr = zx.tensorfy(g)
+    check_answer(res, corr, g)
 
 
 def test_rank_factorize():
@@ -65,28 +75,32 @@ def test_rw_simulate_square():
     assert np.allclose(res, zx.tensorfy(g))
 
 
-def test_rw_simulate_graph():
+def test_rw_simulate_random_graph():
     n, m = 10, 40
     for _ in range(10):
         g = gen_graph(n, m)
         res = simulate_graph(g)
         corr = zx.tensorfy(g)
-        check(res, corr, g)
+        check_answer(res, corr, g)
 
 
-def test_rw_simulate_circuit():
+def test_rw_simulate_random_circuit():
     n_qubits, n_gates = 5, 100
     basic_states = ['0', '1', '+', '-']
     for _ in range(10):
-        circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
-        state = random.choice(basic_states) * n_qubits
-        effect = random.choice(basic_states) * n_qubits
-        res = simulate_circuit(circ, state, effect)
+        check_circuit_simulation(
+            zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates),
+            random.choice(basic_states) * n_qubits,
+            random.choice(basic_states) * n_qubits
+        )
 
-        g = circ.to_graph()
-        g.apply_state(state)
-        g.apply_effect(effect)
-        zx.simplify.full_reduce(g)
-        corr = zx.tensorfy(g)
 
-        check(res, corr, g)
+def test_rw_simulate_small_circuit():
+    check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=1, depth=0),
+                             '0', '0')
+    check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=1, depth=1, p_t=0.8),
+                             '+', '+')
+    check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=2, depth=0),
+                             '1-', '-1')
+    check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=2, depth=1),
+                             '--', '11')
