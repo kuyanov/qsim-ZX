@@ -145,7 +145,7 @@ def initial_rw_decomposition(g: zx.graph.base.BaseGraph) -> list:
     mat, vert2id, id2vert = adjacency_matrix(g)
     used = np.zeros(n, dtype=np.bool_)
     vert_groups = []
-    for i in range(n):
+    for i in range(n - 1, -1, -1):
         j = vert2id[ord[i]]
         if ord[i] not in gadget_dict:
             vert_groups.append([j])

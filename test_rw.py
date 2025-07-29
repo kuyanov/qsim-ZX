@@ -4,7 +4,9 @@ import random
 from galois import GF2
 
 from gf2 import rank_factorize, generalized_inverse
-from rw_simulate import simulate_graph, simulate_circuit
+from graph import adjacency_matrix
+from rw_simulate import initial_rw_decomposition, simulate_graph, simulate_circuit
+from tree import incidence_list, calc_partitions, calc_ranks
 
 
 def gen_graph(n, m):
@@ -52,6 +54,22 @@ def test_generalized_inverse():
              [1, 1, 1, 1]])
     B = generalized_inverse(A)
     assert (A @ B @ A == A).all()
+
+
+def test_initial_rw_decomposition():
+    n_qubits, n_gates_start = 10, 50
+    for it in range(10):
+        n_gates = n_gates_start * (it + 1)
+        circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
+        g = circ.to_graph()
+        zx.full_reduce(g)
+        tree_edges = initial_rw_decomposition(g)
+        inc = incidence_list(tree_edges)
+        part = calc_partitions(inc, tree_edges)
+        mat, _, _ = adjacency_matrix(g)
+        tree_edges = calc_ranks(mat, part, tree_edges)
+        r = max(r for _, _, r in tree_edges)
+        assert r <= n_qubits
 
 
 def test_rw_simulate_one_edge():
