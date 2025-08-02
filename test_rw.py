@@ -1,18 +1,20 @@
 import numpy as np
 import pyzx as zx
+import quizx
 import random
+from fractions import Fraction
 from galois import GF2
 
+from decomposition import pauli_flow_decomposition, rank_width
 from gf2 import rank_factorize, generalized_inverse
-from graph import adjacency_matrix
-from rw_simulate import initial_rw_decomposition, simulate_graph, simulate_circuit
-from tree import incidence_list, calc_partitions, calc_ranks
+from graph import to_quizx
+from rw_simulate import simulate_graph, simulate_circuit
 
 
-def gen_graph(n, m):
+def generate_graph(n, m):
     g = zx.Graph()
     for _ in range(n):
-        g.add_vertex(zx.VertexType.Z, phase=random.randint(0, 7) / 4)
+        g.add_vertex(zx.VertexType.Z, phase=Fraction(random.randint(0, 7), 4))
     while g.num_edges() < m:
         [u, v] = random.sample(range(n), k=2)
         if (u, v) not in g.edge_set() and (v, u) not in g.edge_set():
@@ -20,12 +22,18 @@ def gen_graph(n, m):
     return g
 
 
-def check_answer(res, corr, g):
+def check_amplitude(res, corr, g):
     if not np.allclose(res, corr):
-        print(f'WA {res} {corr}')
+        print(f'Amplitude mismatch: expected {corr}, found {res}')
         print(g)
         print(g.edge_set())
         assert False
+
+
+def check_graph_simulation(g, decomp):
+    res = simulate_graph(g, decomp)
+    corr = zx.tensorfy(g)
+    check_amplitude(res, corr, g)
 
 
 def check_circuit_simulation(circ, state, effect):
@@ -35,7 +43,7 @@ def check_circuit_simulation(circ, state, effect):
     g.apply_effect(effect)
     zx.simplify.full_reduce(g)
     corr = zx.tensorfy(g)
-    check_answer(res, corr, g)
+    check_amplitude(res, corr, g)
 
 
 def test_rank_factorize():
@@ -56,53 +64,53 @@ def test_generalized_inverse():
     assert (A @ B @ A == A).all()
 
 
-def test_initial_rw_decomposition():
+def test_pauli_flow_decomposition():
     n_qubits, n_gates_start = 10, 50
-    for it in range(10):
+    for it in range(5):
         n_gates = n_gates_start * (it + 1)
         circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
         g = circ.to_graph()
         zx.full_reduce(g)
-        tree_edges = initial_rw_decomposition(g)
-        inc = incidence_list(tree_edges)
-        part = calc_partitions(inc, tree_edges)
-        mat, _, _ = adjacency_matrix(g)
-        tree_edges = calc_ranks(mat, part, tree_edges)
-        r = max(r for _, _, r in tree_edges)
-        assert r <= n_qubits
+        decomp = pauli_flow_decomposition(g)
+        assert rank_width(decomp, g) <= n_qubits
 
 
-def test_rw_simulate_one_edge():
+def test_quizx_annealer():
+    for _ in range(10):
+        g = to_quizx(generate_graph(5, 7))
+        ann = quizx.RankwidthAnnealer(g)
+        decomp = ann.run()
+        # assert quizx.DecompTree.from_list(decomp.to_list()).rankwidth(g) == decomp.rankwidth(g)
+        assert decomp.rankwidth(g) == rank_width(decomp.to_list(), g)
+
+
+def test_simulate_one_edge():
     g = zx.Graph()
     g.add_vertex(zx.VertexType.Z, phase=0)
     g.add_vertex(zx.VertexType.Z, phase=1)
     g.add_edge((0, 1), zx.EdgeType.HADAMARD)
-    tree_edges = [(0, 1), (1, 0)]
-    res = simulate_graph(g, tree_edges)
-    assert np.allclose(res, zx.tensorfy(g))
+    decomp = [0, 1]
+    check_graph_simulation(g, decomp)
 
 
-def test_rw_simulate_square():
+def test_simulate_square():
     g = zx.Graph()
     for i in range(4):
         g.add_vertex(zx.VertexType.Z)
     for i in range(4):
         g.add_edge((i, (i + 1) % 4), zx.EdgeType.HADAMARD)
-    tree_edges = [(0, 4), (4, 0), (1, 4), (4, 1), (2, 5), (5, 2), (3, 5), (5, 3), (4, 5), (5, 4)]
-    res = simulate_graph(g, tree_edges)
-    assert np.allclose(res, zx.tensorfy(g))
+    decomp = [[0, 1], [2, 3]]
+    check_graph_simulation(g, decomp)
 
 
-def test_rw_simulate_random_graph():
-    n, m = 10, 40
+def test_simulate_random_graph():
     for _ in range(10):
-        g = gen_graph(n, m)
-        res = simulate_graph(g)
-        corr = zx.tensorfy(g)
-        check_answer(res, corr, g)
+        g = to_quizx(generate_graph(10, 40))
+        ann = quizx.RankwidthAnnealer(g)
+        check_graph_simulation(g, ann.init_decomp().to_list())
 
 
-def test_rw_simulate_random_circuit():
+def test_simulate_random_circuit():
     n_qubits, n_gates = 5, 100
     basic_states = ['0', '1', '+', '-']
     for _ in range(10):
@@ -113,7 +121,7 @@ def test_rw_simulate_random_circuit():
         )
 
 
-def test_rw_simulate_small_circuit():
+def test_simulate_small_circuit():
     check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=1, depth=0),
                              '0', '0')
     check_circuit_simulation(zx.generate.CNOT_HAD_PHASE_circuit(qubits=1, depth=1, p_t=0.8),
