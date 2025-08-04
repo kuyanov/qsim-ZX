@@ -7,7 +7,7 @@ from math import *
 
 from decomposition import pauli_flow_decomposition, sub_decomposition
 from gf2 import rank_factorize, generalized_inverse
-from graph import adjacency_matrix, to_quizx
+from graph import adjacency_matrix
 
 
 def weight(A: GF2) -> int:
@@ -115,12 +115,9 @@ def simulate_circuit(circ: zx.Circuit, state: str, effect: str) -> complex:
     zx.clifford_simp(g)
     if g.num_vertices() == 0:
         return simulate_graph(g, [])
-    g2 = to_quizx(g)
+    g2 = g.copy(backend="quizx-vec")
     decomp = sub_decomposition(decomp, list(g.vertices()), list(g2.vertices()))
     init_decomp = quizx.DecompTree.from_list(decomp)
-    # ann = quizx.RankwidthAnnealer(g2, seed=42, init_decomp=init,
-    #                               init_temp=10.0, min_temp=1e-3, cooling_rate=0.999,
-    #                               adaptive_cooling=True, iterations=1000)
     ann = quizx.RankwidthAnnealer(g2, init_decomp=init_decomp)
     final_decomp = ann.run()
     return simulate_graph(g2, final_decomp.to_list())

@@ -7,7 +7,6 @@ from galois import GF2
 
 from decomposition import pauli_flow_decomposition, rank_width
 from gf2 import rank_factorize, generalized_inverse
-from graph import to_quizx
 from rw_simulate import simulate_graph, simulate_circuit
 
 
@@ -76,11 +75,10 @@ def test_pauli_flow_decomposition():
 
 
 def test_quizx_annealer():
-    for _ in range(10):
-        g = to_quizx(generate_graph(5, 7))
+    for _ in range(50):
+        g = generate_graph(10, 40).copy(backend="quizx-vec")
         ann = quizx.RankwidthAnnealer(g)
         decomp = ann.run()
-        # assert quizx.DecompTree.from_list(decomp.to_list()).rankwidth(g) == decomp.rankwidth(g)
         assert decomp.rankwidth(g) == rank_width(decomp.to_list(), g)
 
 
@@ -105,7 +103,7 @@ def test_simulate_square():
 
 def test_simulate_random_graph():
     for _ in range(10):
-        g = to_quizx(generate_graph(10, 40))
+        g = generate_graph(10, 40).copy(backend="quizx-vec")
         ann = quizx.RankwidthAnnealer(g)
         check_graph_simulation(g, ann.init_decomp().to_list())
 
