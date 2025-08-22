@@ -7,7 +7,7 @@ from galois import GF2
 
 from decomposition import pauli_flow_decomposition, rank_width
 from gf2 import rank_factorize, generalized_inverse
-from rw_simulate import simulate_graph, simulate_circuit
+from rw_simulate import conv_naive, conv_vw, conv_uv, conv_uw, simulate_graph, simulate_circuit
 
 
 def generate_graph(n, m):
@@ -21,18 +21,17 @@ def generate_graph(n, m):
     return g
 
 
-def check_amplitude(res, corr, g):
+def check_amplitude(res, corr, info=''):
     if not np.allclose(res, corr):
         print(f'Amplitude mismatch: expected {corr}, found {res}')
-        print(g)
-        print(g.edge_set())
+        print(info)
         assert False
 
 
 def check_graph_simulation(g, decomp):
     res = simulate_graph(g, decomp)
     corr = zx.tensorfy(g)
-    check_amplitude(res, corr, g)
+    check_amplitude(res, corr, str(g.edge_set()))
 
 
 def check_circuit_simulation(circ, state, effect):
@@ -40,9 +39,9 @@ def check_circuit_simulation(circ, state, effect):
     g = circ.to_graph()
     g.apply_state(state)
     g.apply_effect(effect)
-    zx.simplify.full_reduce(g)
     corr = zx.tensorfy(g)
-    check_amplitude(res, corr, g)
+    zx.simplify.full_reduce(g)
+    check_amplitude(res, corr, str(g.edge_set()))
 
 
 def test_rank_factorize():
@@ -82,6 +81,22 @@ def test_quizx_annealer():
         assert decomp.rankwidth(g) == rank_width(decomp.to_list(), g)
 
 
+def test_convolution():
+    r_u, r_v, r_w = 2, 2, 2
+    Psi_v = np.random.random((2,) * r_v).astype(np.complex128)
+    Psi_w = np.random.random((2,) * r_w).astype(np.complex128)
+    E_vw = np.random.randint(2, size=(r_v, r_w))
+    E_vu = np.random.randint(2, size=(r_v, r_u))
+    E_wu = np.random.randint(2, size=(r_w, r_u))
+    corr = conv_naive(Psi_v, Psi_w, E_vw, E_vu, E_wu)
+    res_vw = conv_vw(Psi_v, Psi_w, E_vw, E_vu, E_wu)
+    res_uv = conv_uv(Psi_v, Psi_w, E_vw, E_vu, E_wu)
+    res_uw = conv_uw(Psi_v, Psi_w, E_vw, E_vu, E_wu)
+    check_amplitude(res_vw, corr, 'conv_vw')
+    check_amplitude(res_uv, corr, 'conv_uv')
+    check_amplitude(res_uw, corr, 'conv_uw')
+
+
 def test_simulate_one_edge():
     g = zx.Graph()
     g.add_vertex(zx.VertexType.Z, phase=0)
@@ -109,7 +124,7 @@ def test_simulate_random_graph():
 
 
 def test_simulate_random_circuit():
-    n_qubits, n_gates = 5, 100
+    n_qubits, n_gates = 10, 200
     basic_states = ['0', '1', '+', '-']
     for _ in range(10):
         check_circuit_simulation(

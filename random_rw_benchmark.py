@@ -19,7 +19,7 @@ def gen_reduced_diagram(n_qubits, n_gates) -> zx.graph.base.BaseGraph:
 
 
 if __name__ == "__main__":
-    output_dir = 'results/random-rw-benchmark'
+    output_dir = 'results/random-rw-benchmark-old'
     os.makedirs(output_dir, exist_ok=True)
 
     timeout_s = 1
