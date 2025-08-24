@@ -1,0 +1,16 @@
+Q=10 G=50 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=114
+Q=10 G=100 flops_auto=292 flops_auto_hq=292 flops_greedy=360 flops_rw=926
+Q=10 G=200 flops_auto=129748 flops_auto_hq=86016 flops_greedy=180488 flops_rw=6276
+Q=10 G=300 flops_auto=162312 flops_auto_hq=93188 flops_greedy=1105440 flops_rw=68790
+Q=15 G=75 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=114
+Q=15 G=150 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=10666
+Q=15 G=250 flops_auto=13635848 flops_auto_hq=1603380 flops_greedy=20647712 flops_rw=636966
+Q=15 G=350 flops_auto=13843272 flops_auto_hq=4188468 flops_greedy=14091944 flops_rw=1566282
+Q=20 G=100 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=34
+Q=20 G=200 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=729588
+Q=20 G=300 flops_auto=12979916 flops_auto_hq=820396 flops_greedy=36348472 flops_rw=20170
+Q=20 G=400 flops_auto=152591076 flops_auto_hq=67852580 flops_greedy=10015124552 flops_rw=14006922
+Q=25 G=125 flops_auto=0 flops_auto_hq=0 flops_greedy=0 flops_rw=0
+Q=25 G=250 flops_auto=3512 flops_auto_hq=2524 flops_greedy=3256 flops_rw=1136776
+Q=25 G=350 flops_auto=164123320 flops_auto_hq=47756016 flops_greedy=1164313120 flops_rw=100324314
+Q=25 G=450 flops_auto=1011082664 flops_auto_hq=481761856 flops_greedy=7494546104 flops_rw=65580954

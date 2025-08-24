@@ -111,10 +111,11 @@ def conv_uv(Psi_v: np.ndarray, Psi_w: np.ndarray,
     r_u, r_v, r_w = E_vu.shape[1], Psi_v.ndim, Psi_w.ndim
     E = np.hstack([E_vw.T, E_wu])
     Psi_vu = apply_parity_map(Psi_w, E)
-    Psi_vu = np.fft.fftn(Psi_vu) / sqrt(2) ** (r_u + r_v)
-    Psi_vu *= phase_tensor(E_vu)
-    Psi_u_hat = np.tensordot(Psi_v, Psi_vu, axes=(tuple(range(r_v)), tuple(range(r_v))))
-    Psi_u = np.fft.fftn(Psi_u_hat) / sqrt(2) ** r_u
+    Psi_vu = np.fft.fftn(Psi_vu, axes=tuple(range(r_v))) / sqrt(2) ** r_v
+    E2 = np.block([[np.eye(r_v), E_vu],
+                   [np.zeros((r_u, r_v)), np.eye(r_u)]]).astype(bool)
+    Psi_vu = apply_parity_map(Psi_vu, E2)
+    Psi_u = np.tensordot(Psi_v, Psi_vu, axes=(tuple(range(r_v)), tuple(range(r_v))))
     return Psi_u
 
 
@@ -212,7 +213,7 @@ def simulate_circuit(circ: zx.Circuit, state: str, effect: str, verbose=False) -
         init_rw = init_decomp.rankwidth(g2)
         init_score = init_decomp.rankwidth_score(g2, 'flops')
         print(f'Initial rank-decomposition has width {init_rw} and score_flops = {init_score}')
-    ann = quizx.RankwidthAnnealer(g2, init_decomp=init_decomp, score_kind='flops')
+    ann = quizx.RankwidthAnnealer(g2, init_decomp=init_decomp)
     final_decomp = ann.run()
     if verbose:
         final_rw = final_decomp.rankwidth(g2)

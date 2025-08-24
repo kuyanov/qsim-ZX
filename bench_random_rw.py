@@ -2,12 +2,11 @@ from tqdm import trange
 
 from rw_simulate import *
 
-
 n_qubits_gates = [
-    (10, 50), (10, 100), (10, 200), (10, 400),
-    (20, 100), (20, 200), (20, 400), (20, 800),
-    (30, 150), (30, 300), (30, 600), (30, 1200),
-    (40, 200), (40, 400), (40, 800), (40, 1600),
+    (10, 50), (10, 100), (10, 200), (10, 300),
+    (15, 75), (15, 150), (15, 250), (15, 350),
+    (20, 100), (20, 200), (20, 300), (20, 400),
+    (25, 125), (25, 250), (25, 350), (25, 450),
 ]
 
 for i in trange(len(n_qubits_gates)):
@@ -32,4 +31,6 @@ for i in trange(len(n_qubits_gates)):
     final_decomp = ann.run()
     final_score = final_decomp.rankwidth_score(g2, kind='flops')
     final_rw = final_decomp.rankwidth(g2)
-    print(f'Q={n_qubits} G={n_gates}, score: {init_score:.3f} -> {final_score:.3f}, rw: {init_rw} -> {final_rw}')
+    print(f'Q={n_qubits} G={n_gates}, '
+          f'score: {init_score:.3f} -> {final_score:.3f}, '
+          f'rw: {init_rw} -> {final_rw}')
