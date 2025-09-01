@@ -1,13 +1,7 @@
-import numpy as np
-import pyzx as zx
-import quizx
 import random
 from fractions import Fraction
-from galois import GF2
 
-from decomposition import pauli_flow_decomposition, rank_width
-from gf2 import rank_factorize, generalized_inverse
-from rw_simulate import conv_naive, conv_vw, conv_uv, conv_uw, simulate_graph, simulate_circuit
+from rw_simulate import *
 
 
 def generate_graph(n, m):
@@ -40,7 +34,6 @@ def check_circuit_simulation(circ, state, effect):
     g.apply_state(state)
     g.apply_effect(effect)
     corr = zx.tensorfy(g)
-    zx.simplify.full_reduce(g)
     check_amplitude(res, corr, str(g.edge_set()))
 
 
@@ -62,15 +55,14 @@ def test_generalized_inverse():
     assert (A @ B @ A == A).all()
 
 
-def test_pauli_flow_decomposition():
-    n_qubits, n_gates_start = 10, 50
+def test_initial_decomposition():
+    n_qubits, n_gates = 10, 500
     for it in range(5):
-        n_gates = n_gates_start * (it + 1)
         circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
-        g = circ.to_graph()
-        zx.full_reduce(g)
-        decomp = pauli_flow_decomposition(g)
-        assert rank_width(decomp, g) <= n_qubits
+        state, effect = '0' * n_qubits, '0' * n_qubits
+        g, decomp = initial_decomposition(circ, state, effect)
+        if g.num_vertices() > 0:
+            assert rank_width(decomp, g) <= n_qubits
 
 
 def test_quizx_annealer():
@@ -82,7 +74,7 @@ def test_quizx_annealer():
 
 
 def test_convolution():
-    r_u, r_v, r_w = 2, 2, 2
+    r_u, r_v, r_w = 2, 3, 4
     Psi_v = np.random.random((2,) * r_v).astype(np.complex128)
     Psi_w = np.random.random((2,) * r_w).astype(np.complex128)
     E_vw = np.random.randint(2, size=(r_v, r_w))
@@ -125,12 +117,12 @@ def test_simulate_random_graph():
 
 def test_simulate_random_circuit():
     n_qubits, n_gates = 10, 200
-    basic_states = ['0', '1', '+', '-']
+    basis_states = ['0', '1', '+', '-']
     for _ in range(10):
         check_circuit_simulation(
             zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates),
-            random.choice(basic_states) * n_qubits,
-            random.choice(basic_states) * n_qubits
+            random.choice(basis_states) * n_qubits,
+            random.choice(basis_states) * n_qubits
         )
 
 

@@ -17,7 +17,6 @@ def decomposition_flops(g, decomp):
     S_0 = set(g.vertices())
 
     def iterate(elem):
-        global total_cost
         if isinstance(elem, int):
             return {elem}, 0
         S_v, cost_v = iterate(elem[0])
@@ -28,37 +27,27 @@ def decomposition_flops(g, decomp):
         r_w = rank_factorize(adjacency_matrix(g, S_w, S_0 - S_w))[0]
         return S_u, cost_v + cost_w + convolution_flops(r_u, r_v, r_w)
 
+    if decomp is None:
+        return 0
     return iterate(decomp)[1]
 
 
-def rw_simulate_flops(circ: zx.Circuit, state: str, effect: str) -> int:
-    g = circ.to_graph()
-    zx.full_reduce(g)
-    decomp = pauli_flow_decomposition(g)
-    g.apply_state(state)
-    g.apply_effect(effect)
-    zx.clifford_simp(g)
-    if g.num_vertices() == 0:
-        return 0
-    g2 = g.copy(backend="quizx-vec")
-    decomp = sub_decomposition(decomp, list(g.vertices()), list(g2.vertices()))
-    init_decomp = quizx.DecompTree.from_list(decomp)
-    ann = quizx.RankwidthAnnealer(g2, init_decomp=init_decomp, seed=1)
-    final_decomp = ann.run()
-    return decomposition_flops(g2, final_decomp.to_list())
+def rw_simulate_flops(circ: zx.Circuit, state: str, effect: str, **annealer_kwargs) -> int:
+    g, decomp = initial_decomposition(circ, state, effect)
+    g, decomp = improve_decomposition(g, decomp, **annealer_kwargs)
+    return decomposition_flops(g, decomp)
 
 
 def quimb_flops(circ: zx.Circuit, state: str, effect: str, optimize: str, initial: bool):
     if initial:
         qcirc = circuit2quimb(circ)
-        reh = amplitude(qcirc, state, effect, optimize=optimize, rehearse=True)
+        reh = quimb_amplitude(qcirc, state, effect, optimize=optimize, rehearse=True)
         flops = reh['tree'].contraction_cost()
         return flops
-    g = circ.to_graph()
+    g = circuit2graph(circ, state, effect)
+    g.apply_state('0' * circ.qubits)
+    g.apply_effect('0' * circ.qubits)
     zx.full_reduce(g)
-    g.apply_state(state)
-    g.apply_effect(effect)
-    zx.clifford_simp(g)
     net = to_quimb_tensor(g)
     flops = net.contraction_cost(optimize=optimize)
     return flops

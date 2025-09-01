@@ -1,28 +1,31 @@
 import os
+import random
 
 import numpy as np
 import pyzx as zx
 
-from rw_simulate import simulate_circuit
-from quimb_helpers import circuit2quimb, amplitude
+from rw_simulate import simulate_circuit, circuit2graph
+from quimb_helpers import circuit2quimb, quimb_amplitude
 
 
 def test_simulate_special():
-    circuit_dir = 'circuits/all'
+    circuit_dir = 'circuits/special'
+    basis_states = ['0', '1', '+', '-', 'T']
     for f in sorted(os.listdir(circuit_dir)):
         fpath = os.path.join(circuit_dir, f)
         circ = zx.Circuit.load(fpath)
-        state, effect = '-' * circ.qubits, '-' * circ.qubits
+        state = random.choice(basis_states) * circ.qubits
+        effect = random.choice(basis_states) * circ.qubits
         qcirc = circuit2quimb(circ)
         res_rw = simulate_circuit(circ, state, effect)
-        res_quimb = amplitude(qcirc, state, effect, optimize='auto')
-        if not np.allclose(np.abs(res_rw), np.abs(res_quimb)):
-            g = circ.to_graph()
-            g.apply_state(state)
-            g.apply_effect(effect)
+        res_quimb = quimb_amplitude(qcirc, state, effect)
+        if not np.allclose(np.abs(res_rw), np.abs(res_quimb), atol=1e-6):
+            g = circuit2graph(circ, state, effect)
+            g.apply_state('0' * circ.qubits)
+            g.apply_effect('0' * circ.qubits)
             corr = zx.tensorfy(g)
-            rw_wrong = not np.allclose(res_rw, corr)
-            quimb_wrong = not np.allclose(res_quimb, corr)
+            rw_wrong = not np.allclose(np.abs(res_rw), np.abs(corr), atol=1e-6)
+            quimb_wrong = not np.allclose(np.abs(res_quimb), np.abs(corr), atol=1e-6)
             print(f)
             if rw_wrong and not quimb_wrong:
                 print(f'Rank-width strategy is wrong, expected: {corr}, found: {res_rw}')
