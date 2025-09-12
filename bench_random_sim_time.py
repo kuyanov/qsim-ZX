@@ -6,7 +6,17 @@ import seaborn as sns
 from quimb_helpers import *
 from rw_simulate import *
 
-n_qubits = 20
+def simulate_stab(circ, state, effect, driver_type=None):
+    g = circ.to_graph()
+    g.apply_state(state)
+    g.apply_effect(effect)
+    zx.full_reduce(g)
+    d = quizx.Decomposer(g.copy(backend='quizx-vec'))
+    d.with_full_simp()
+    d.decompose(driver_type=driver_type)
+    return d.get_scalar().to_number()
+
+n_qubits = 10
 ns_gates = list(range(50, 501, 25))
 n_iter = 5
 
@@ -18,6 +28,11 @@ data_quimb = {
     'G': [],
     'time': [],
 }
+data_stab_bss_cats = {
+    'G': [],
+    'time': [],
+}
+
 for i, n_gates in enumerate(ns_gates):
     for j in range(n_iter):
         circ = zx.generate.CNOT_HAD_PHASE_circuit(n_qubits, n_gates)
@@ -35,7 +50,13 @@ for i, n_gates in enumerate(ns_gates):
         data_quimb['G'].append(n_gates)
         data_quimb['time'].append(t1 - t0)
 
-sns.pointplot(data_rw, x='G', y='time', label='rank-width', log_scale=True)
+        t0 = time.time()
+        res_stab_bss_cats = simulate_stab(circ, state, effect, driver_type='BssWithCats')
+        t1 = time.time()
+        data_stab_bss_cats['G'].append(n_gates)
+        data_stab_bss_cats['time'].append(t1 - t0)
+
 sns.pointplot(data_quimb, x='G', y='time', label='quimb', color='black', log_scale=True)
-# plt.legend()
+sns.pointplot(data_rw, x='G', y='time', label='rank-width', log_scale=True)
+sns.pointplot(data_stab_bss_cats, x='G', y='time', label='BssWithCats', log_scale=True)
 plt.show()

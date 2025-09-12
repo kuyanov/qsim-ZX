@@ -1,8 +1,5 @@
 import time
 
-import numpy as np
-
-from flops import *
 from quimb_helpers import *
 from rw_simulate import *
 
@@ -14,25 +11,26 @@ from rw_simulate import *
 # print(g.num_vertices(), g.num_edges())
 
 # circ = zx.Circuit.load('circuits/special/mod_mult_55')
-circ = zx.generate.CNOT_HAD_PHASE_circuit(20, 300)
+circ = zx.generate.CNOT_HAD_PHASE_circuit(25, 800)
 state, effect = '0' * circ.qubits, '0' * circ.qubits
 
 t0 = time.time()
-res_rw = simulate_circuit(circ, state, effect, iterations=0)
+res_rw = simulate_circuit(circ, state, effect, iterations=0, verbose=True)
 t1 = time.time()
 print(f'our time: {t1 - t0:.3f} sec')
-t0 = time.time()
-res_quimb = quimb_amplitude(circuit2quimb(circ), state, effect)
-t1 = time.time()
-print(f'quimb time: {t1 - t0:.3f} sec')
 
-t0 = time.time()
-g = circuit2graph(circ, state, effect)
-g.apply_state('0' * circ.qubits)
-g.apply_effect('0' * circ.qubits)
-res_tfy = zx.tensorfy(g)
-t1 = time.time()
-print(f'tensorfy time: {t1 - t0:.3f} sec')
+# t0 = time.time()
+# res_quimb = quimb_amplitude(circuit2quimb(circ), state, effect, optimize='auto')
+# t1 = time.time()
+# print(f'quimb time: {t1 - t0:.3f} sec')
+
+# t0 = time.time()
+# g = circuit2graph(circ, state, effect)
+# g.apply_state('0' * circ.qubits)
+# g.apply_effect('0' * circ.qubits)
+# res_tfy = zx.tensorfy(g)
+# t1 = time.time()
+# print(f'tensorfy time: {t1 - t0:.3f} sec')
 
 # circuit_name = 'circuits/special/csla_mux_3_original'
 # circuit_name = 'circuits/special/csum_mux_9_corrected'

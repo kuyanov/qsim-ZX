@@ -75,8 +75,8 @@ def test_quizx_annealer():
 
 def test_convolution():
     r_u, r_v, r_w = 2, 3, 4
-    Psi_v = np.random.random((2,) * r_v).astype(np.complex128)
-    Psi_w = np.random.random((2,) * r_w).astype(np.complex128)
+    Psi_v = np.random.random(2 ** r_v).astype(np.complex128)
+    Psi_w = np.random.random(2 ** r_w).astype(np.complex128)
     E_vw = np.random.randint(2, size=(r_v, r_w))
     E_vu = np.random.randint(2, size=(r_v, r_u))
     E_wu = np.random.randint(2, size=(r_w, r_u))
