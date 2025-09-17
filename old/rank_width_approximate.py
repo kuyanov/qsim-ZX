@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 
-def rw_decomposition(g: zx.graph.base.BaseGraph, timeout_s=1):
+def rank_width_approximate(g: zx.graph.base.BaseGraph, timeout_s=1):
     if g.num_vertices() == 0:
         return []
     vs = {v: i for i, v in enumerate(g.vertices())}

@@ -1,6 +1,9 @@
-from pyzx import to_quimb_tensor
-from rw_simulate import *
-from quimb_helpers import *
+import pyzx as zx
+
+from gf2 import rank_factorize
+from graph import adjacency_matrix
+from decomp_heuristics import compute_decomposition
+from zx_helpers import circuit2graph
 
 
 def convolution_flops(r_u, r_v, r_w):
@@ -32,22 +35,19 @@ def decomposition_flops(g, decomp):
     return iterate(decomp)[1]
 
 
-def rw_simulate_flops(circ: zx.Circuit, state: str, effect: str, **annealer_kwargs) -> int:
-    g, decomp = initial_decomposition(circ, state, effect)
-    g, decomp = improve_decomposition(g, decomp, **annealer_kwargs)
+def rw_simulate_flops(circ: zx.Circuit, state: str, effect: str, opt='auto') -> int:
+    g = circuit2graph(circ, state, effect)
+    g, decomp = compute_decomposition(g, opt=opt)
+    # decomp = anneal_decomposition(g, decomp, **annealer_kwargs)
     return decomposition_flops(g, decomp)
 
 
-def quimb_flops(circ: zx.Circuit, state: str, effect: str, optimize: str, initial: bool):
-    if initial:
-        qcirc = circuit2quimb(circ)
-        reh = quimb_amplitude(qcirc, state, effect, optimize=optimize, rehearse=True)
-        flops = reh['tree'].contraction_cost()
-        return flops
+def quimb_flops(circ: zx.Circuit, state: str, effect: str, optimize='auto', initial=False):
     g = circuit2graph(circ, state, effect)
     g.apply_state('0' * circ.qubits)
     g.apply_effect('0' * circ.qubits)
-    zx.full_reduce(g)
-    net = to_quimb_tensor(g)
+    if not initial:
+        zx.full_reduce(g)
+    net = zx.to_quimb_tensor(g).full_simplify()
     flops = net.contraction_cost(optimize=optimize)
     return flops

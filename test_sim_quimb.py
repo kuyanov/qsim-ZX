@@ -4,8 +4,9 @@ import random
 import numpy as np
 import pyzx as zx
 
-from rw_simulate import simulate_circuit, circuit2graph
-from quimb_helpers import circuit2quimb, quimb_amplitude
+from rw_simulate import simulate_circuit
+from quimb_helpers import quimb_amplitude
+from zx_helpers import circuit2graph
 
 
 def test_simulate_special():
@@ -16,9 +17,8 @@ def test_simulate_special():
         circ = zx.Circuit.load(fpath)
         state = random.choice(basis_states) * circ.qubits
         effect = random.choice(basis_states) * circ.qubits
-        qcirc = circuit2quimb(circ)
         res_rw = simulate_circuit(circ, state, effect)
-        res_quimb = quimb_amplitude(qcirc, state, effect)
+        res_quimb = quimb_amplitude(circ, state, effect)
         if not np.allclose(np.abs(res_rw), np.abs(res_quimb), atol=1e-6):
             g = circuit2graph(circ, state, effect)
             g.apply_state('0' * circ.qubits)

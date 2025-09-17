@@ -1,7 +1,13 @@
+import numpy as np
+import pyzx as zx
+import quizx
 import random
 from fractions import Fraction
 
-from rw_simulate import *
+from gf2 import rank_factorize, generalized_inverse
+from graph import rank_width
+from decomp_heuristics import flow_decomposition
+from rw_simulate import simulate_graph, simulate_circuit, conv_uv, conv_uw, conv_vw, conv_naive
 
 
 def generate_graph(n, m):
@@ -38,29 +44,29 @@ def check_circuit_simulation(circ, state, effect):
 
 
 def test_rank_factorize():
-    A = GF2([[1, 1, 1, 1, 1],
-             [1, 1, 1, 1, 1],
-             [0, 1, 0, 0, 1],
-             [1, 0, 1, 1, 0]])
+    A = np.array([[1, 1, 1, 1, 1],
+                  [1, 1, 1, 1, 1],
+                  [0, 1, 0, 0, 1],
+                  [1, 0, 1, 1, 0]], dtype=np.int8)
     r, U, V = rank_factorize(A)
     assert r == 2
-    assert (U[:, :r] @ V[:r] == A).all()
+    assert ((U[:, :r] @ V[:r]) % 2 == A).all()
 
 
 def test_generalized_inverse():
-    A = GF2([[1, 1, 1, 0],
-             [1, 1, 1, 1],
-             [1, 1, 1, 1]])
+    A = np.array([[1, 1, 1, 0],
+                  [1, 1, 1, 1],
+                  [1, 1, 1, 1]], dtype=np.int8)
     B = generalized_inverse(A)
-    assert (A @ B @ A == A).all()
+    assert ((A @ B @ A) % 2 == A).all()
 
 
-def test_initial_decomposition():
+def test_flow_decomposition():
     n_qubits, n_gates = 10, 500
     for it in range(5):
         circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
-        state, effect = '0' * n_qubits, '0' * n_qubits
-        g, decomp = initial_decomposition(circ, state, effect)
+        g = circ.to_graph()
+        g, decomp = flow_decomposition(g)
         if g.num_vertices() > 0:
             assert rank_width(decomp, g) <= n_qubits
 
@@ -77,9 +83,9 @@ def test_convolution():
     r_u, r_v, r_w = 2, 3, 4
     Psi_v = np.random.random(2 ** r_v).astype(np.complex128)
     Psi_w = np.random.random(2 ** r_w).astype(np.complex128)
-    E_vw = np.random.randint(2, size=(r_v, r_w))
-    E_vu = np.random.randint(2, size=(r_v, r_u))
-    E_wu = np.random.randint(2, size=(r_w, r_u))
+    E_vw = np.random.randint(2, size=(r_v, r_w)).astype(np.int8)
+    E_vu = np.random.randint(2, size=(r_v, r_u)).astype(np.int8)
+    E_wu = np.random.randint(2, size=(r_w, r_u)).astype(np.int8)
     corr = conv_naive(Psi_v, Psi_w, E_vw, E_vu, E_wu)
     res_vw = conv_vw(Psi_v, Psi_w, E_vw, E_vu, E_wu)
     res_uv = conv_uv(Psi_v, Psi_w, E_vw, E_vu, E_wu)
