@@ -1,27 +1,43 @@
 import pyzx as zx
 import os
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 
+from matplotlib.patches import Patch
 from tqdm import trange
 from flops import rw_simulate_flops, quimb_flops
 
+
+def per_circuit_barplot(data, **kwargs):
+    order = data.groupby('strategy')['flops'].sum().sort_values().index
+    ax = sns.barplot(
+        data=data,
+        x='strategy',
+        y='flops',
+        order=order,
+        hue='strategy',
+        palette='bright',
+        **kwargs
+    )
+    ax.set_xticks([])
+    ax.set_title('')
+    ax.set_xlabel(data['circuit'].iloc[0])
+    ax.set_yscale('log')
+
+
 if __name__ == '__main__':
     circuit_dir = 'circuits/special'
-    batch1 = ['tof_3', 'tof_4', 'tof_5', 'tof_10',
-              'barenco_tof_3.qasm', 'barenco_tof_4.qasm', 'barenco_tof_5.qasm',
-              'qft_4.qasm', 'qft_8', 'hwb6.qc']
-    batch2 = ['adder_8', 'rc_adder_6', 'vbe_adder_3', 'mod_mult_55', 'mod_red_21',
-              'gf2^4_mult', 'csla_mux_3_original', 'csum_mux_9_corrected',
-              'qcla_com_7', 'ham15-low.qc']
-
+    batch = ['tof_3', 'tof_4', 'tof_5', 'tof_10', 'barenco_tof_3.qasm',
+             'barenco_tof_4.qasm', 'barenco_tof_5.qasm', 'qft_4.qasm', 'qft_8', 'hwb6.qc',
+             'adder_8', 'rc_adder_6', 'vbe_adder_3', 'mod_mult_55', 'mod_red_21',
+             'gf2^4_mult', 'csla_mux_3_original', 'csum_mux_9_corrected', 'qcla_com_7', 'ham15-low.qc']
     data = {
         'circuit': [],
         'flops': [],
         'strategy': [],
     }
 
-    batch = batch2
     for i in trange(len(batch)):
         circ = zx.Circuit.load(os.path.join(circuit_dir, batch[i]))
         state, effect = 'T' * circ.qubits, 'T' * circ.qubits
@@ -72,8 +88,15 @@ if __name__ == '__main__':
         data['flops'].append(flops_rw_auto)
         data['strategy'].append('rank-width (auto)')
 
-    sns.barplot(data, x='circuit', y='flops', hue='strategy', palette='bright')
-    plt.xticks(rotation=25)
-    plt.yscale('log')
-    plt.xlabel('')
-    plt.show()
+    df = pd.DataFrame(data)
+    g = sns.FacetGrid(df, col='circuit', col_wrap=5, sharex=False)
+    g.map_dataframe(per_circuit_barplot)
+
+    strategies = df['strategy'].unique()
+    palette_list = sns.color_palette('bright', n_colors=len(strategies))
+    palette = dict(zip(strategies, palette_list))
+    handles = [Patch(facecolor=palette[s], label=s) for s in strategies]
+    g.figure.legend(handles=handles, loc='upper left', ncol=3)
+
+    plt.tight_layout()
+    plt.savefig('results/bench-special/flops.png')
