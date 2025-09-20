@@ -9,7 +9,6 @@ if __name__ == '__main__':
     n_qubits = 10
     ns_gates = list(range(100, 801, 25))
     repeat = 3
-
     data = {
         'n_gates': [],
         'flops': [],
@@ -67,6 +66,8 @@ if __name__ == '__main__':
             data['flops'].append(flops_rw_auto)
             data['strategy'].append('rank-width (auto)')
 
+    plt.figure(figsize=(14, 8))
     sns.pointplot(data, x='n_gates', y='flops', hue='strategy', palette='bright')
     plt.yscale('log')
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f'results/bench-random/CNOT_H_T_Q{n_qubits}_flops.png')

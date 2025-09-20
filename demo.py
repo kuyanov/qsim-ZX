@@ -72,42 +72,42 @@ def greedy_inc_decomposition(g: zx.graph.base.BaseGraph):
     return decomp
 
 
-# circ = zx.Circuit.load('circuits/special/csum_mux_9_corrected')
-circ = zx.generate.CNOT_HAD_PHASE_circuit(10, 1000)
+circ = zx.Circuit.load('circuits/special/ham15-low.qc')
+# circ = zx.generate.CNOT_HAD_PHASE_circuit(10, 2000)
 state, effect = 'T' * circ.qubits, 'T' * circ.qubits
-print(f'Our flops (flow): {rw_simulate_flops(circ, state, effect, opt="flow")}')
-print(f'Our flops (linear): {rw_simulate_flops(circ, state, effect, opt="linear")}')
-print(f'Our flops (greedy): {rw_simulate_flops(circ, state, effect, opt="greedy")}')
-print(f'Our flops (dp): {rw_simulate_flops(circ, state, effect, opt="dp")}')
-print(f'Our flops (auto): {rw_simulate_flops(circ, state, effect, opt="auto")}')
+# print(f'Our flops (flow): {rw_simulate_flops(circ, state, effect, opt="flow")}')
+# print(f'Our flops (linear): {rw_simulate_flops(circ, state, effect, opt="linear")}')
+# print(f'Our flops (greedy): {rw_simulate_flops(circ, state, effect, opt="greedy")}')
+# print(f'Our flops (dp): {rw_simulate_flops(circ, state, effect, opt="dp")}')
+# print(f'Our flops (auto): {rw_simulate_flops(circ, state, effect, opt="auto")}')
 # print(f'Quimb flops (auto): {quimb_flops(circ, state, effect, optimize="auto", initial=True)}')
 # print(f'Quimb flops (auto-hq): {quimb_flops(circ, state, effect, optimize="auto-hq", initial=True)}')
 
-# g = circuit2graph(circ, state, effect).copy(backend='quizx-vec')
-# g.apply_state('0' * circ.qubits)
-# g.apply_effect('0' * circ.qubits)
-# quizx.full_simp(g)
-# print('n_vertices =', g.num_vertices())
-# print('n_qubits =', circ.qubits)
-#
-# t0 = time.time()
-# decomp0 = linear_greedy_decomposition(g)
-# t1 = time.time()
-# print(f'linear-greedy decomposition computed in {t1 - t0:.3f} sec')
-# print(f'linear-greedy decomposition has width {rank_width(decomp0, g)} and score {rank_score_flops(decomp0, g)}')
-#
+g = circuit2graph(circ, state, effect).copy(backend='quizx-vec')
+g.apply_state('0' * circ.qubits)
+g.apply_effect('0' * circ.qubits)
+quizx.full_simp(g)
+print('n_vertices =', g.num_vertices())
+print('n_qubits =', circ.qubits)
+
+t0 = time.time()
+decomp0 = auto_decomposition(g)
+t1 = time.time()
+print(f'auto decomposition computed in {t1 - t0:.3f} sec')
+print(f'auto decomposition has width {rank_width(decomp0, g)} and score {rank_score_flops(decomp0, g)}')
+
 # t0 = time.time()
 # decomp1 = linear_decomposition(g)
 # t1 = time.time()
 # print(f'linear decomposition computed in {t1 - t0:.3f} sec')
 # print(f'linear decomposition has width {rank_width(decomp1, g)} and score {rank_score_flops(decomp1, g)}')
 #
-# t0 = time.time()
-# decomp2 = greedy_decomposition(g)
-# t1 = time.time()
-# print(f'greedy decomposition computed in {t1 - t0:.3f} sec')
-# print(f'greedy decomposition has width {rank_width(decomp2, g)} and score {rank_score_flops(decomp2, g)}')
-#
+t0 = time.time()
+decomp2 = greedy_decomposition(g)
+t1 = time.time()
+print(f'greedy decomposition computed in {t1 - t0:.3f} sec')
+print(f'greedy decomposition has width {rank_width(decomp2, g)} and score {rank_score_flops(decomp2, g)}')
+
 # t0 = time.time()
 # decomp3 = linear_dp_decomposition(g)
 # t1 = time.time()

@@ -231,12 +231,14 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
     refs = []
     decomps = []
     leaves = []
-    for i in order:
+    loc = []
+    for i in range(n):
         ref = REF(mat)
-        ref.take(i)
+        ref.take(order[i])
         refs.append(ref)
-        decomps.append(vert[i])
-        leaves.append({i})
+        decomps.append(vert[order[i]])
+        leaves.append({order[i]})
+        loc.append(i)
     refs_next = dict()
     edges = [set() for _ in range(n)]
     for i in range(n):
@@ -250,10 +252,11 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
             edges[j].add(i)
 
     while refs_next:
-        min_rank, i, j = min((ref.rank(), i, j) for (i, j), ref in refs_next.items())
+        min_rank, _, i, j = min((ref.rank(), abs(loc[j] - loc[i]), i, j)
+                                for (i, j), ref in refs_next.items())
         if i > j:
             i, j = j, i
-        r1, r2, r3 = refs[i].rank(), refs[j].rank(), min_rank
+        r1, r2, r3 = refs[loc[i]].rank(), refs[loc[j]].rank(), min_rank
         if r1 + r2 + r3 - max(r1, r2, r3) > max_width + 1:
             refs_next.pop((i, j))
             refs_next.pop((j, i))
@@ -261,21 +264,20 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
             edges[j].remove(i)
             continue
 
-        ranks = [refs[k].rank() if k != i else min_rank for k in range(n) if refs[k] and k != j]
-        new_cut_refs = deepcopy(cut_refs)
-        for k in range(i, j):
-            if new_cut_refs[k]:
-                for leaf in leaves[j]:
-                    new_cut_refs[k].take(leaf)
-        new_cut_refs[j] = None
-        cut_ranks = [new_cut_refs[k].rank() for k in range(n) if new_cut_refs[k]]
-        assert len(ranks) == len(cut_ranks)
+        new_cut_refs = []
+        r1 = cut_refs[loc[i] - 1].rank() if loc[i] != 0 else 0
         bad = False
-        for k in range(1, len(cut_ranks)):
-            r1, r2, r3 = cut_ranks[k - 1], cut_ranks[k], ranks[k]
+        for k in range(loc[i], loc[j]):
+            new_cut_ref = deepcopy(cut_refs[k])
+            for leaf in leaves[loc[j]]:
+                new_cut_ref.take(leaf)
+            r2 = new_cut_ref.rank()
+            r3 = refs[k].rank() if k != loc[i] else min_rank
             if r1 + r2 + r3 - max(r1, r2, r3) > max_width + 1:
                 bad = True
                 break
+            new_cut_refs.append(new_cut_ref)
+            r1 = r2
         if bad:
             refs_next.pop((i, j))
             refs_next.pop((j, i))
@@ -283,13 +285,18 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
             edges[j].remove(i)
             continue
 
-        refs[i] = refs_next[(i, j)]
-        refs[j] = None
-        cut_refs = new_cut_refs
-        decomps[i] = [decomps[i], decomps[j]]
-        decomps[j] = None
-        leaves[i] |= leaves[j]
-        leaves[j] = None
+        refs[loc[i]] = refs_next[(i, j)]
+        refs.pop(loc[j])
+        cut_refs[loc[i]:loc[j]] = new_cut_refs
+        cut_refs.pop(loc[j])
+        decomps[loc[i]] = [decomps[loc[i]], decomps[loc[j]]]
+        decomps.pop(loc[j])
+        leaves[loc[i]] |= leaves[loc[j]]
+        leaves.pop(loc[j])
+        loc[j] = None
+        for k in range(j + 1, n):
+            if loc[k] is not None:
+                loc[k] -= 1
         edges_i = edges[i].copy()
         for k in edges_i:
             refs_next.pop((i, k))
@@ -303,21 +310,21 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
             edges[j].remove(k)
             edges[k].remove(j)
         for k in range(n):
-            if refs[k] is None or k == i:
+            if loc[k] is None or k == i:
                 continue
-            if set(refs[i].pivot_cols) & leaves[k] or set(refs[k].pivot_cols) & leaves[i]:
-                i1, i2 = (i, k) if len(leaves[i]) > len(leaves[k]) else (k, i)
-                ref = deepcopy(refs[i1])
-                for leaf in leaves[i2]:
+            if (set(refs[loc[i]].pivot_cols) & leaves[loc[k]] or
+                    set(refs[loc[k]].pivot_cols) & leaves[loc[i]]):
+                i1, i2 = (i, k) if len(leaves[loc[i]]) > len(leaves[loc[k]]) else (k, i)
+                ref = deepcopy(refs[loc[i1]])
+                for leaf in leaves[loc[i2]]:
                     ref.take(leaf)
                 refs_next[(i1, i2)] = refs_next[(i2, i1)] = ref
                 edges[i1].add(i2)
                 edges[i2].add(i1)
 
-    decomp = None
-    for i in range(n):
-        if decomps[i] is not None:
-            decomp = [decomp, decomps[i]] if decomp is not None else decomps[i]
+    decomp = decomps[0]
+    for cur_decomp in decomps[1:]:
+        decomp = [decomp, cur_decomp]
     if verbose:
         width = rank_width(decomp, g)
         score = rank_score_flops(decomp, g)
