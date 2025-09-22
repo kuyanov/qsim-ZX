@@ -5,9 +5,9 @@ from flops import rw_simulate_flops, quimb_flops
 from graph import rank_width, rank_score_flops
 from zx_helpers import circuit2graph
 
-circ = zx.Circuit.load('circuits/small/ham15-low.qasm')
+circ = zx.Circuit.load('circuits/small/gf2^4_mult.qasm')
 # circ = zx.generate.CNOT_HAD_PHASE_circuit(10, 1000)
-state, effect = 'T' * circ.qubits, 'T' * circ.qubits
+state, effect = '0' * circ.qubits, '0' * circ.qubits
 print(f'Our flops (flow): {rw_simulate_flops(circ, state, effect, opt="flow")}')
 print(f'Our flops (linear): {rw_simulate_flops(circ, state, effect, opt="linear")}')
 print(f'Our flops (greedy): {rw_simulate_flops(circ, state, effect, opt="greedy")}')

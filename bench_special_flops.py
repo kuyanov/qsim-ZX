@@ -27,7 +27,7 @@ def per_circuit_barplot(data, **kwargs):
 
 
 if __name__ == '__main__':
-    circuit_dir = 'circuits/quick'
+    circuit_dir = 'circuits/small'
     batch = sorted(os.listdir(circuit_dir))
     data = {
         'circuit': [],
@@ -50,15 +50,15 @@ if __name__ == '__main__':
         data['flops'].append(flops_quimb_init_auto_hq)
         data['strategy'].append('quimb_init (auto-hq)')
 
-        flops_quimb_auto = quimb_flops(circ, state, effect, optimize='auto', initial=False)
-        data['circuit'].append(circ_name)
-        data['flops'].append(flops_quimb_auto)
-        data['strategy'].append('quimb (auto)')
-
-        flops_quimb_auto_hq = quimb_flops(circ, state, effect, optimize='auto-hq', initial=False)
-        data['circuit'].append(circ_name)
-        data['flops'].append(flops_quimb_auto_hq)
-        data['strategy'].append('quimb (auto-hq)')
+        # flops_quimb_auto = quimb_flops(circ, state, effect, optimize='auto', initial=False)
+        # data['circuit'].append(circ_name)
+        # data['flops'].append(flops_quimb_auto)
+        # data['strategy'].append('quimb (auto)')
+        #
+        # flops_quimb_auto_hq = quimb_flops(circ, state, effect, optimize='auto-hq', initial=False)
+        # data['circuit'].append(circ_name)
+        # data['flops'].append(flops_quimb_auto_hq)
+        # data['strategy'].append('quimb (auto-hq)')
 
         flops_rw_flow = rw_simulate_flops(circ, state, effect, opt='flow')
         data['circuit'].append(circ_name)
@@ -96,4 +96,4 @@ if __name__ == '__main__':
     g.figure.legend(handles=handles, ncol=3)
 
     plt.tight_layout()
-    plt.savefig('results/bench-special/quick_flops_full.png')
+    plt.savefig('results/bench-special/small_flops_full.png')

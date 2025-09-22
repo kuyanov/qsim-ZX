@@ -41,50 +41,42 @@ def causal_flow(g: zx.graph.base.BaseGraph):
         k += 1
 
 
-def flow_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
+def flow_order(g: zx.graph.base.BaseGraph, flatten=False):
     zx.to_graph_like(g)
     zx.id_simp(g)
     zx.spider_simp(g)
-    if verbose:
-        print(f'Initial graph-like diagram has {g.num_vertices()} vertices and {g.num_edges()} edges')
     layers, _ = causal_flow(g)
-    order = sorted(list(layers.keys()), key=lambda v: layers[v], reverse=True)
-
+    init_order = sorted(list(layers.keys()), key=lambda v: layers[v], reverse=True)
     g.apply_state('0' * g.num_inputs())
     g.apply_effect('0' * g.num_outputs())
-    g2 = g.copy(backend="quizx-vec")
-    order_dict = {v: i for i, v in enumerate(sorted(order))}
-    pivots = simplify_get_pivots(g2)
-
-    if verbose:
-        print(f'Final graph-like diagram has {g2.num_vertices()} vertices and {g2.num_edges()} edges')
-
-    if g2.num_vertices() == 0:
-        return g2, None
-
-    new_order = [order_dict[v] for v in order if order_dict[v] in g2.vertices()]
-    gadgets_g2 = phase_gadgets(g2)
-    for u, v in pivots + gadgets_g2:
-        if u not in new_order or v not in new_order:
+    g = g.copy(backend="quizx-vec")
+    init_order_dict = {v: i for i, v in enumerate(sorted(init_order))}
+    pivots = simplify_get_pivots(g)
+    order = [init_order_dict[v] for v in init_order if init_order_dict[v] in g.vertices()]
+    gadgets = phase_gadgets(g)
+    for u, v in pivots + gadgets:
+        if u not in order or v not in order:
             continue
-        new_order.pop(new_order.index(v))
-        new_order.insert(new_order.index(u) + 1, v)
-    for u, v in gadgets_g2:
-        pos = new_order.index(u)
-        if new_order[pos:pos + 2] != [u, v]:
-            continue
-        new_order[pos:pos + 2] = [[u, v]]
-    decomp = build_linear(new_order)
-    return g2, decomp
+        order.pop(order.index(v))
+        order.insert(order.index(u) + 1, v)
+    if not flatten:
+        for u, v in gadgets:
+            pos = order.index(u)
+            if order[pos:pos + 2] != [u, v]:
+                continue
+            order[pos:pos + 2] = [[u, v]]
+    return g, order
 
 
 def linear_order(g: zx.graph.base.BaseGraph):
     n = g.num_vertices()
+    if n == 0:
+        return []
     vert = list(g.vertices())
     mat = adjacency_matrix(g, vert, vert)
     ref = REF(mat)
     ref.take(0)
-    order = [0]
+    order = [vert[0]]
     for i in range(1, n):
         min_r, min_u = n, -1
         for u in ref.pivot_cols:
@@ -94,25 +86,12 @@ def linear_order(g: zx.graph.base.BaseGraph):
             if r < min_r:
                 min_r = r
                 min_u = u
-        order.append(min_u)
+        order.append(vert[min_u])
         ref.take(min_u)
     return order
 
 
-def linear_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
-    if g.num_vertices() == 0:
-        return None
-    vert = list(g.vertices())
-    order = linear_order(g)
-    decomp = build_linear([vert[v] for v in order])
-    if verbose:
-        width = rank_width(decomp, g)
-        score = rank_score_flops(decomp, g)
-        print(f'Linear rank-decomposition has width {width} and score {score:.3f}')
-    return decomp
-
-
-def greedy_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
+def greedy_decomposition(g: zx.graph.base.BaseGraph):
     n = g.num_vertices()
     if n == 0:
         return None
@@ -168,22 +147,16 @@ def greedy_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
                 refs_next[(i1, i2)] = refs_next[(i2, i1)] = ref
                 edges[i1].add(i2)
                 edges[i2].add(i1)
-    decomp = decomps[i]
-    if verbose:
-        width = rank_width(decomp, g)
-        score = rank_score_flops(decomp, g)
-        print(f'Greedy rank-decomposition has width {width} and score {score:.3f}')
-    return decomp
+    return decomps[i]
 
 
-def dp_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
+def dp_decomposition(g: zx.graph.base.BaseGraph, order):
     n = g.num_vertices()
     if n == 0:
         return None
     vert = list(g.vertices())
+    order = [vert.index(v) for v in order]
     mat = adjacency_matrix(g, vert, vert)
-    order = linear_order(g)
-
     rank_seg = [[-1] * n for _ in range(n)]
     for i in range(n):
         ref = REF(mat)
@@ -210,21 +183,14 @@ def dp_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
         k = ans[i][j]
         return [restore_decomp(i, k), restore_decomp(k + 1, j)]
 
-    decomp = restore_decomp(0, n - 1)
-    if verbose:
-        width = rank_width(decomp, g)
-        score = rank_score_flops(decomp, g)
-        print(f'DP rank-decomposition has width {width} and score {score:.3f}')
-    return decomp
+    return restore_decomp(0, n - 1)
 
 
-def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
+def auto_decomposition(g: zx.graph.base.BaseGraph, order):
     n = g.num_vertices()
-    if n == 0:
-        return None
     vert = list(g.vertices())
+    order = [vert.index(v) for v in order]
     mat = adjacency_matrix(g, vert, vert)
-    order = linear_order(g)
     refs = []
     cut_refs = []
     cut_ref = REF(mat)
@@ -254,8 +220,7 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
     best_decomp = build_linear(decomps)
     best_score = rank_score_flops(best_decomp, g)
     while refs_next:
-        min_rank, _, i, j = min((ref.rank(), abs(loc[j] - loc[i]), i, j)
-                                for (i, j), ref in refs_next.items())
+        min_rank, i, j = min((ref.rank(), i, j) for (i, j), ref in refs_next.items())
         if i > j:
             i, j = j, i
 
@@ -315,10 +280,6 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
                 edges[i1].add(i2)
                 edges[i2].add(i1)
 
-    if verbose:
-        width = rank_width(best_decomp, g)
-        score = rank_score_flops(best_decomp, g)
-        print(f'Auto rank-decomposition has width {width} and score {score:.3f}')
     return best_decomp
 
 
@@ -341,20 +302,31 @@ def anneal_decomposition(g: zx.graph.base.BaseGraph, decomp, verbose=False, **an
 
 def compute_decomposition(g: zx.graph.base.BaseGraph, opt='auto', verbose=False):
     if opt == 'flow':
-        return flow_decomposition(g, verbose=verbose)
-    g.apply_state('0' * g.num_inputs())
-    g.apply_effect('0' * g.num_outputs())
-    zx.full_reduce(g)
-    if verbose:
-        print(f'Final ZX diagram has {g.num_vertices()} vertices and {g.num_edges()} edges')
-    if g.num_vertices() == 0:
-        return g, None
-    if opt == 'greedy':
-        return g, greedy_decomposition(g, verbose=verbose)
+        g, order = flow_order(g)
+        decomp = build_linear(order)
+    elif opt == 'greedy':
+        g.apply_state('0' * g.num_inputs())
+        g.apply_effect('0' * g.num_outputs())
+        zx.full_reduce(g)
+        decomp = greedy_decomposition(g)
     elif opt == 'linear':
-        return g, linear_decomposition(g, verbose=verbose)
+        g.apply_state('0' * g.num_inputs())
+        g.apply_effect('0' * g.num_outputs())
+        zx.full_reduce(g)
+        order = linear_order(g)
+        decomp = build_linear(order)
     elif opt == 'dp':
-        return g, dp_decomposition(g, verbose=verbose)
+        g.apply_state('0' * g.num_inputs())
+        g.apply_effect('0' * g.num_outputs())
+        zx.full_reduce(g)
+        order = linear_order(g)
+        decomp = dp_decomposition(g, order)
     elif opt == 'auto':
-        return g, auto_decomposition(g, verbose=verbose)
-    raise ValueError('Unknown decomposition strategy')
+        g, order = flow_order(g, flatten=True)
+        decomp = auto_decomposition(g, order)
+    else:
+        raise ValueError('Unknown optimiser')
+    if verbose:
+        width, score = rank_width(decomp, g), rank_score_flops(decomp, g)
+        print(f'Rank-decomposition ({opt}) has width {width} and score {score:.3f}')
+    return g, decomp

@@ -6,7 +6,7 @@ from fractions import Fraction
 
 from gf2 import rank_factorize, generalized_inverse
 from graph import rank_width
-from decomp_heuristics import flow_decomposition
+from decomp_heuristics import compute_decomposition
 from rw_simulate import simulate_graph, simulate_circuit, conv_uv, conv_uw, conv_vw, conv_naive
 
 
@@ -66,7 +66,7 @@ def test_flow_decomposition():
     for it in range(5):
         circ = zx.generate.CNOT_HAD_PHASE_circuit(qubits=n_qubits, depth=n_gates)
         g = circ.to_graph()
-        g, decomp = flow_decomposition(g)
+        g, decomp = compute_decomposition(g, opt='flow')
         if g.num_vertices() > 0:
             assert rank_width(decomp, g) <= n_qubits
 
