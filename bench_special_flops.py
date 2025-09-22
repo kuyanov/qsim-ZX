@@ -27,11 +27,8 @@ def per_circuit_barplot(data, **kwargs):
 
 
 if __name__ == '__main__':
-    circuit_dir = 'circuits/special'
-    batch = ['tof_3', 'tof_4', 'tof_5', 'tof_10', 'barenco_tof_3.qasm',
-             'barenco_tof_4.qasm', 'barenco_tof_5.qasm', 'qft_4.qasm', 'qft_8', 'hwb6.qc',
-             'adder_8', 'rc_adder_6', 'vbe_adder_3', 'mod_mult_55', 'mod_red_21',
-             'gf2^4_mult', 'csla_mux_3_original', 'csum_mux_9_corrected', 'qcla_com_7', 'ham15-low.qc']
+    circuit_dir = 'circuits/quick'
+    batch = sorted(os.listdir(circuit_dir))
     data = {
         'circuit': [],
         'flops': [],
@@ -96,7 +93,7 @@ if __name__ == '__main__':
     palette_list = sns.color_palette('bright', n_colors=len(strategies))
     palette = dict(zip(strategies, palette_list))
     handles = [Patch(facecolor=palette[s], label=s) for s in strategies]
-    g.figure.legend(handles=handles, loc='upper left', ncol=3)
+    g.figure.legend(handles=handles, ncol=3)
 
     plt.tight_layout()
-    plt.savefig('results/bench-special/flops.png')
+    plt.savefig('results/bench-special/quick_flops_full.png')

@@ -2,8 +2,9 @@ import pyzx as zx
 import quizx
 
 from copy import deepcopy
+from math import log2
 from gf2 import REF
-from graph import adjacency_matrix, rank_width, rank_score_flops
+from graph import adjacency_matrix, build_linear, rank_width, rank_score_flops
 from zx_helpers import phase_gadgets, simplify_get_pivots
 
 
@@ -73,9 +74,7 @@ def flow_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
         if new_order[pos:pos + 2] != [u, v]:
             continue
         new_order[pos:pos + 2] = [[u, v]]
-    decomp = new_order[0]
-    for elem in new_order[1:]:
-        decomp = [decomp, elem]
+    decomp = build_linear(new_order)
     return g2, decomp
 
 
@@ -101,11 +100,11 @@ def linear_order(g: zx.graph.base.BaseGraph):
 
 
 def linear_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
+    if g.num_vertices() == 0:
+        return None
     vert = list(g.vertices())
     order = linear_order(g)
-    decomp = vert[order[0]]
-    for i in range(1, len(order)):
-        decomp = [decomp, vert[order[i]]]
+    decomp = build_linear([vert[v] for v in order])
     if verbose:
         width = rank_width(decomp, g)
         score = rank_score_flops(decomp, g)
@@ -115,6 +114,8 @@ def linear_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
 
 def greedy_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
     n = g.num_vertices()
+    if n == 0:
+        return None
     vert = list(g.vertices())
     mat = adjacency_matrix(g, vert, vert)
     refs = []
@@ -177,6 +178,8 @@ def greedy_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
 
 def dp_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
     n = g.num_vertices()
+    if n == 0:
+        return None
     vert = list(g.vertices())
     mat = adjacency_matrix(g, vert, vert)
     order = linear_order(g)
@@ -217,28 +220,25 @@ def dp_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
 
 def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
     n = g.num_vertices()
+    if n == 0:
+        return None
     vert = list(g.vertices())
     mat = adjacency_matrix(g, vert, vert)
     order = linear_order(g)
-    cut_refs = []
-    ref = REF(mat)
-    max_width = 0
-    for i in order:
-        ref.take(i)
-        cut_refs.append(deepcopy(ref))
-        max_width = max(max_width, ref.rank())
-
     refs = []
-    decomps = []
-    leaves = []
-    loc = []
-    for i in range(n):
+    cut_refs = []
+    cut_ref = REF(mat)
+    for v in order:
         ref = REF(mat)
-        ref.take(order[i])
+        ref.take(v)
         refs.append(ref)
-        decomps.append(vert[order[i]])
-        leaves.append({order[i]})
-        loc.append(i)
+        cut_ref.take(v)
+        cut_refs.append(deepcopy(cut_ref))
+
+    decomps = [vert[v] for v in order]
+    leaves = [{v} for v in order]
+    scores = [0.0] * n
+    loc = list(range(n))
     refs_next = dict()
     edges = [set() for _ in range(n)]
     for i in range(n):
@@ -251,40 +251,23 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
             edges[i].add(j)
             edges[j].add(i)
 
+    best_decomp = build_linear(decomps)
+    best_score = rank_score_flops(best_decomp, g)
     while refs_next:
         min_rank, _, i, j = min((ref.rank(), abs(loc[j] - loc[i]), i, j)
                                 for (i, j), ref in refs_next.items())
         if i > j:
             i, j = j, i
-        r1, r2, r3 = refs[loc[i]].rank(), refs[loc[j]].rank(), min_rank
-        if r1 + r2 + r3 - max(r1, r2, r3) > max_width + 1:
-            refs_next.pop((i, j))
-            refs_next.pop((j, i))
-            edges[i].remove(j)
-            edges[j].remove(i)
-            continue
 
         new_cut_refs = []
-        r1 = cut_refs[loc[i] - 1].rank() if loc[i] != 0 else 0
-        bad = False
         for k in range(loc[i], loc[j]):
             new_cut_ref = deepcopy(cut_refs[k])
             for leaf in leaves[loc[j]]:
                 new_cut_ref.take(leaf)
-            r2 = new_cut_ref.rank()
-            r3 = refs[k].rank() if k != loc[i] else min_rank
-            if r1 + r2 + r3 - max(r1, r2, r3) > max_width + 1:
-                bad = True
-                break
             new_cut_refs.append(new_cut_ref)
-            r1 = r2
-        if bad:
-            refs_next.pop((i, j))
-            refs_next.pop((j, i))
-            edges[i].remove(j)
-            edges[j].remove(i)
-            continue
 
+        r_i, r_j = refs[loc[i]].rank(), refs[loc[j]].rank()
+        merge_score = r_i + r_j + min_rank - max(r_i, r_j, min_rank)
         refs[loc[i]] = refs_next[(i, j)]
         refs.pop(loc[j])
         cut_refs[loc[i]:loc[j]] = new_cut_refs
@@ -293,10 +276,20 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
         decomps.pop(loc[j])
         leaves[loc[i]] |= leaves[loc[j]]
         leaves.pop(loc[j])
+        scores[loc[i]] += scores[loc[j]] + 2.0 ** merge_score
+        scores.pop(loc[j])
         loc[j] = None
         for k in range(j + 1, n):
             if loc[k] is not None:
                 loc[k] -= 1
+        linear_score = 0
+        for k in range(1, len(refs)):
+            r1, r2, r3 = cut_refs[k - 1].rank(), cut_refs[k].rank(), refs[k].rank()
+            linear_score += 2.0 ** (r1 + r2 + r3 - max(r1, r2, r3))
+        cur_score = log2(sum(scores) + linear_score)
+        if cur_score < best_score:
+            best_score = cur_score
+            best_decomp = build_linear(decomps)
         edges_i = edges[i].copy()
         for k in edges_i:
             refs_next.pop((i, k))
@@ -322,14 +315,11 @@ def auto_decomposition(g: zx.graph.base.BaseGraph, verbose=False):
                 edges[i1].add(i2)
                 edges[i2].add(i1)
 
-    decomp = decomps[0]
-    for cur_decomp in decomps[1:]:
-        decomp = [decomp, cur_decomp]
     if verbose:
-        width = rank_width(decomp, g)
-        score = rank_score_flops(decomp, g)
+        width = rank_width(best_decomp, g)
+        score = rank_score_flops(best_decomp, g)
         print(f'Auto rank-decomposition has width {width} and score {score:.3f}')
-    return decomp
+    return best_decomp
 
 
 def anneal_decomposition(g: zx.graph.base.BaseGraph, decomp, verbose=False, **annealer_kwargs):

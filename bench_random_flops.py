@@ -70,4 +70,4 @@ if __name__ == '__main__':
     sns.pointplot(data, x='n_gates', y='flops', hue='strategy', palette='bright')
     plt.yscale('log')
     plt.tight_layout()
-    plt.savefig(f'results/bench-random/CNOT_H_T_Q{n_qubits}_flops.png')
+    plt.savefig(f'results/bench-random/CNOT_H_T_Q{n_qubits}_flops_full.png')

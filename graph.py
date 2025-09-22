@@ -20,6 +20,13 @@ def adjacency_matrix(g: zx.graph.base.BaseGraph, v_left: Iterable[int], v_right:
     return mat
 
 
+def build_linear(arr: Iterable):
+    decomp = None
+    for elem in arr:
+        decomp = elem if decomp is None else [decomp, elem]
+    return decomp
+
+
 def calc_ranks(decomp, g: zx.graph.base.BaseGraph):
     v_all = list(g.vertices())
     v_id = {v: i for i, v in enumerate(v_all)}
@@ -54,6 +61,8 @@ def rank_width(decomp, g: zx.graph.base.BaseGraph, calc_rs=True) -> int:
             return data[1].rank()
         return max(data[1].rank(), iterate(data[0][0]), iterate(data[0][1]))
 
+    if decomp is None:
+        return 0
     return iterate(calc_ranks(decomp, g) if calc_rs else decomp)
 
 
@@ -66,6 +75,8 @@ def rank_score_flops(decomp, g: zx.graph.base.BaseGraph, calc_rs=True) -> float:
         r1, r2, r3 = data[0][0][1].rank(), data[0][1][1].rank(), data[1].rank()
         return score1 + score2 + 2 ** (r1 + r2 + r3 - max(r1, r2, r3))
 
+    if decomp is None:
+        return 0
     score = iterate(calc_ranks(decomp, g) if calc_rs else decomp)
     return math.log2(max(score, 1))
 
@@ -78,5 +89,7 @@ def rank_score_square(decomp, g: zx.graph.base.BaseGraph, calc_rs=True) -> int:
         score2 = iterate(data[0][1])
         return score1 + score2 + data[1].rank() ** 2
 
+    if decomp is None:
+        return 0
     score = iterate(calc_ranks(decomp, g) if calc_rs else decomp)
     return score ** 0.5

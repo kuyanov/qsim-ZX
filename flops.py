@@ -9,11 +9,11 @@ from zx_helpers import circuit2graph
 def convolution_flops(r_u, r_v, r_w):
     r_max = max(r_u, r_v, r_w)
     if r_max == r_u:
-        return 2 ** (r_v + r_w) * 3
+        return 2.0 ** (r_v + r_w) * 3
     elif r_max == r_v:
-        return 2 ** (r_u + r_w) * (4 + r_w)
+        return 2.0 ** (r_u + r_w) * (4 + r_w)
     else:
-        return 2 ** (r_u + r_v) * (4 + r_v)
+        return 2.0 ** (r_u + r_v) * (4 + r_v)
 
 
 def decomposition_flops(g, decomp):
@@ -32,7 +32,7 @@ def decomposition_flops(g, decomp):
 
     if decomp is None:
         return 0
-    return iterate(decomp)[1]
+    return int(iterate(decomp)[1])
 
 
 def rw_simulate_flops(circ: zx.Circuit, state: str, effect: str, opt='auto') -> int:
